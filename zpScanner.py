@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Jun 29 14:07:06 2017
-
 @author: Kasra Nowrouzi
+
+@author: Jiangtao Zhao
+Added DAQ function on Wed Nov 14 20:50:05 2018
 """
 
 from pylibftdi import Device, Driver
+from uldaq import get_daq_device_inventory, DaqDevice, InterfaceType, TmrIdleState, PulseOutOption
 import numpy as np
 import time
 import struct
@@ -16,6 +19,11 @@ class nPoint:
         # refer to page 29 of NPoint manual for formatting info
         self.devID = ftdi_device_id
         self.dev = self.connect() # NOTE: SUDO PRIVILEGES NEEDED TO CONNECT
+ 	
+        #connect the daq_device 
+        self.daq_device = self.DaqConnect() 
+	#call the timer function to generate the pulse,, in order to tigger ccd
+        self.tmr_device = self.daq_device.get_tmr_device()
         
         #axis base address
         self.axis1address = 0x11831000
@@ -54,6 +62,17 @@ class nPoint:
     
     def connect(self):
         return Device(device_id = self.devID)
+
+    def DaqConnect(self):#connect DAQ devices
+        try:
+            devices = get_daq_device_inventory(InterfaceType.USB)
+            number_of_devices = len(devices)
+            daq_device = DaqDevice(devices[0])
+            daq_device.connect()
+            for i in range(number_of_devices):    
+                print(devices[i].product_name,'is connected.')   
+        except: 
+            print("No DAQ device")
     
     def devlist(self): # should really be done outside of this script; but I'll just put it here too. SUDO PRIVILEGES NEEDED TO WORK, OTHERWISE LIST COMES BACK EMPTY.
         return Driver().list_devices()
@@ -270,7 +289,11 @@ class nPoint:
             self.posWrite(2, y)
             #while(round(posRead(dev,2)) != round(y)):
             #    print y, posRead(dev,2)
-            time.sleep(dt*1e-3)
+
+            #generate the pulse
+            self.tmr_device.pulse_out_start(0,1000,0.5,1,0, TmrIdleState.LOW, PulseOutOption.DEFAULT)
+
+            #time.sleep(dt*1e-3)
     
     def rasterScanPoints(self, center, xr, yr, stepsizenmX, stepsizenmY):
         nx, ny = int(xr/stepsizenmX), int(yr/stepsizenmY)
