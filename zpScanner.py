@@ -71,6 +71,7 @@ class nPoint:
             daq_device.connect()
             for i in range(number_of_devices):    
                 print(devices[i].product_name,'is connected.')   
+	    return daq_device
         except: 
             print("No DAQ device")
     
@@ -271,7 +272,7 @@ class nPoint:
     def nmToSteps(self, nm):
         return nm * self.sensorGain
     
-    def scan(self, center, xr, yr, stepsizenmX, stepsizenmY, dt, mode='raster'):
+    def scan(self, center, xr, yr, stepsizenmX, stepsizenmY, mode='raster'):
         if mode == 'raster':
             pointsX, pointsY = self.rasterScanPoints(center, xr, yr, stepsizenmX, stepsizenmY)
         elif mode == 'serpentine':
@@ -291,10 +292,12 @@ class nPoint:
             #    print y, posRead(dev,2)
 
             #generate the pulse
-            self.tmr_device.pulse_out_start(0,1000,0.5,1,0, TmrIdleState.LOW, PulseOutOption.DEFAULT)
+            self.tmr_device.pulse_out_start(0,1,0.5,1,10*1e-6, TmrIdleState.LOW, PulseOutOption.DEFAULT)
 
             #time.sleep(dt*1e-3)
-    
+	self.tmr_device.pulse_out_stop(0)
+    	print len(pointsX)
+
     def rasterScanPoints(self, center, xr, yr, stepsizenmX, stepsizenmY):
         nx, ny = int(xr/stepsizenmX), int(yr/stepsizenmY)
         pointsX, pointsY = np.zeros((nx*ny,1)), np.zeros((ny*nx,1))
