@@ -8,7 +8,7 @@ Added DAQ function on Wed Nov 14 20:50:05 2018
 """
 
 from pylibftdi import Device, Driver
-from uldaq import get_daq_device_inventory, DaqDevice, InterfaceType, TmrIdleState, PulseOutOption
+from uldaq import get_daq_device_inventory, DaqDevice, InterfaceType, TmrIdleState, PulseOutOption, TmrStatus
 import numpy as np
 import time
 import struct
@@ -22,7 +22,7 @@ class nPoint:
  	
         #connect the daq_device 
         self.daq_device = self.DaqConnect() 
-	#call the timer function to generate the pulse,, in order to tigger ccd
+	#call the timer function to generate the pulse, in order to tigger ccd
         self.tmr_device = self.daq_device.get_tmr_device()
         
         #axis base address
@@ -272,7 +272,7 @@ class nPoint:
     def nmToSteps(self, nm):
         return nm * self.sensorGain
     
-    def scan(self, center, xr, yr, stepsizenmX, stepsizenmY, mode='raster'):
+    def scan(self, center, xr, yr, stepsizenmX, stepsizenmY,  exposure_time, mode='raster'):
         if mode == 'raster':
             pointsX, pointsY = self.rasterScanPoints(center, xr, yr, stepsizenmX, stepsizenmY)
         elif mode == 'serpentine':
@@ -282,6 +282,19 @@ class nPoint:
             raise('circular scans not yet implemented')
         else:
             raise("unknown scan mode")
+
+	ccd_deadtime = 1*1e-3 #get the right number
+	total_time = exposure_time + ccd_deadtime
+	
+	timer_number = 0
+	frequency = 1. / total_time
+	duty_cycle = float(exposure_time) / total_time
+	pusle_count = 1  
+	initial_delay = 0.0
+	idle_state = TmrIdleState.LOW
+	options = PulseOutOption.DEFAULT
+    	
+
         for x, y in zip(pointsX, pointsY):
             #print x, y
             self.posWrite(1, x)
@@ -291,12 +304,18 @@ class nPoint:
             #while(round(posRead(dev,2)) != round(y)):
             #    print y, posRead(dev,2)
 
+	    
             #generate the pulse
-            self.tmr_device.pulse_out_start(0,1,0.5,1,10*1e-6, TmrIdleState.LOW, PulseOutOption.DEFAULT)
+	    #check the pulse_out_status
+	    status = self.tmr_device.get_pulse_out_status(0) # function: get_pulse_out_status(timer_number)
+	    if status == TmrStatus.RUNNING:
+		a,b,c = self.tmr_device.pulse_out_start(timer_number,frequency,duty_cycle,pusle_count,initial_delay,idle_state, options)
+	    else: 
+		raise("tmr_device status is TmrStatus.IDLE, Please check the tmr_device status")
+            time.sleep(total_time) ## pulse_out_start() function also need this time to generate the equivalent pulse; real total_time include expouse_time + ccddeadtime + pos_moving time;
 
-            #time.sleep(dt*1e-3)
 	self.tmr_device.pulse_out_stop(0)
-    	print len(pointsX)
+    	print a,b,c , len(pointsX)
 
     def rasterScanPoints(self, center, xr, yr, stepsizenmX, stepsizenmY):
         nx, ny = int(xr/stepsizenmX), int(yr/stepsizenmY)
