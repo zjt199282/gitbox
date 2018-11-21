@@ -70,7 +70,7 @@ class nPoint:
             daq_device = DaqDevice(devices[0])
             daq_device.connect()
             for i in range(number_of_devices):    
-                print(devices[i].product_name,'is connected.')   
+                print('{} is connected.'.format(devices[i].product_name))   
 	    return daq_device
         except: 
             print("No DAQ device")
@@ -399,6 +399,18 @@ class nPoint:
             #    print y, posRead(dev,2)
             time.sleep(dt*1e-3)      
      ############### ---------------- ########################################
+
+    def rasterFly(self, xr, yr, stepsizey):
+	line =int(yr / stepsizey)
+	for i in range(line/2):
+	    self.posWrite(1,xr)
+	    time.sleep(200e-3)
+	    self.posWrite(2,(i+1)*stepsizey)
+	    #time.sleep(200e-3)
+	    self.posWrite(1,0)
+	    time.sleep(200e-3)
+	    self.posWrite(2,(i+2)*2)
+	    #time.sleep(200e-3)
     
     def pRead(self, axis):
         addr = self.pAddress(axis)
