@@ -12,6 +12,7 @@ from uldaq import get_daq_device_inventory, DaqDevice, InterfaceType, TmrIdleSta
 import numpy as np
 import time
 import struct
+from timer import timer
 
 class nPoint:
     
@@ -272,6 +273,7 @@ class nPoint:
     def nmToSteps(self, nm):
         return nm * self.sensorGain
     
+    @timer
     def scan(self, center, xr, yr, stepsizenmX, stepsizenmY,  exposure_time, mode='raster'):
         if mode == 'raster':
             pointsX, pointsY = self.rasterScanPoints(center, xr, yr, stepsizenmX, stepsizenmY)
@@ -400,17 +402,36 @@ class nPoint:
             time.sleep(dt*1e-3)      
      ############### ---------------- ########################################
 
+    @timer # a decorator timer to calculate the total elapsed time
     def rasterFly(self, xr, yr, stepsizey):
 	line =int(yr / stepsizey)
+	count = 0
+	
+	timer_number = 0
+	frequency = 1000 
+	duty_cycle = 0.9
+	pusle_count = 20
+        initial_delay = 5e-3 # 0.0  unity=ms
+        idle_state = TmrIdleState.LOW
+        options = PulseOutOption.DEFAULT
+
 	for i in range(line/2):
 	    self.posWrite(1,xr)
-	    time.sleep(200e-3)
-	    self.posWrite(2,(i+1)*stepsizey)
-	    #time.sleep(200e-3)
+	    self.tmr_device.pulse_out_start(timer_number,frequency,duty_cycle,pusle_count,initial_delay,idle_state,options)
+	    time.sleep((xr/100)*1e-3)                 #100 means the velocity 0.1um/ms
+
+	    self.posWrite(2,(i+1+count)*stepsizey)
+	    time.sleep((stepsizey/100)*1e-3)
+
 	    self.posWrite(1,0)
-	    time.sleep(200e-3)
-	    self.posWrite(2,(i+2)*2)
-	    #time.sleep(200e-3)
+	    self.tmr_device.pulse_out_start(timer_number,frequency,duty_cycle,pusle_count,initial_delay,idle_state, options)
+	    time.sleep((xr/100)*1e-3)
+
+	    self.posWrite(2,(i+2+count)*stepsizey)
+	    time.sleep((stepsizey/100)*1e-3
+)
+	    count += 1
+	self.tmr_device.pulse_out_stop(timer_number)
     
     def pRead(self, axis):
         addr = self.pAddress(axis)
